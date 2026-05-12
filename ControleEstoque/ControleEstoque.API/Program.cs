@@ -1,31 +1,76 @@
 using ControleEstoque.API.Data;
 using ControleEstoque.API.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// "Server=(localdb)\\mssqllocaldb;Database=ControleEstoqueDB;Trusted_Connection=True;"
-builder.Services.AddDbContext<AppDbContext>(opt 
-    => opt.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
+// CONEXÃO SQL SERVER
+builder.Services.AddDbContext<AppDbContext>(opt =>
+    opt.UseSqlServer(
+        builder.Configuration.GetConnectionString("Default")
+    ));
 
-// Registro do Service usando o ciclo de vida Scoped (uma instancia por requisicao)
+// SERVICES
 builder.Services.AddScoped<IPedidoService, PedidoService>();
 builder.Services.AddScoped<IProdutoService, ProdutoService>();
 builder.Services.AddScoped<IFornecedorService, FornecedorService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IContaReceberService, ContaReceberService>();
+
+// TOKEN SERVICE
+builder.Services.AddScoped<ITokenService, TokenService>();
+
+// CONTROLLERS
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
-    // encerra o erro de refer�ncia c�clica de objetos para o JSON
-    options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+    // Evita referência cíclica
+    options.JsonSerializerOptions.ReferenceHandler =
+        ReferenceHandler.IgnoreCycles;
 });
 
+// JWT AUTHENTICATION
+builder.Services.AddAuthentication(
+    JwtBearerDefaults.AuthenticationScheme
+)
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters =
+        new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+
+            ValidIssuer =
+                builder.Configuration["Jwt:Issuer"],
+
+            ValidAudience =
+                builder.Configuration["Jwt:Audience"],
+
+            IssuerSigningKey =
+                new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(
+                        builder.Configuration["Jwt:Key"]!
+                    )
+                )
+        };
+});
+
+// AUTHORIZATION
+builder.Services.AddAuthorization();
+
+// SWAGGER
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// SWAGGER
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -33,6 +78,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// JWT
+app.UseAuthentication();
 
 app.UseAuthorization();
 
