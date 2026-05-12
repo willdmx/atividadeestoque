@@ -13,13 +13,16 @@ namespace ControleEstoque.API.Controllers
     {
         private readonly AppDbContext _context; // Injeção do contexto para acessar o banco de dados
         private readonly ITokenService _tokenService; // Injeção do serviço de token para gerar JWT
+        private readonly IPasswordService _passwordService; // Injeção do serviço de senha para verificar a senha
 
         public AuthController( // Construtor para injetar as dependências
             AppDbContext context,
-            ITokenService tokenService)
+            ITokenService tokenService,
+            IPasswordService passwordService)
         {
             _context = context;
             _tokenService = tokenService;
+            _passwordService = passwordService; 
         }
 
         [HttpPost("login")] // Rota para login
@@ -36,7 +39,8 @@ namespace ControleEstoque.API.Controllers
 
             // COMPARAÇÃO SIMPLES
             // depois você pode usar BCrypt
-            if (usuario.SenhaHash != dto.Senha)
+
+            if (!_passwordService.VerifyPassword(dto.Senha, usuario.SenhaHash))
             {
                 return Unauthorized("Senha inválida");
             }
